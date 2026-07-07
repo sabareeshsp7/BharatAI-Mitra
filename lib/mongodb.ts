@@ -1,9 +1,5 @@
 import mongoose from "mongoose";
 
-// NOTE: Do NOT throw at module level — Next.js evaluates this at build time.
-// The check happens lazily inside connectDB() when an API route actually calls it.
-const MONGODB_URI = process.env.MONGODB_URI;
-
 /**
  * Global is used to maintain a cached connection across hot reloads in development.
  * This prevents connections from growing exponentially during API Route usage.
@@ -22,6 +18,8 @@ if (!cached) {
 }
 
 async function connectDB(): Promise<typeof mongoose> {
+  const MONGODB_URI = process.env.MONGODB_URI;
+
   if (cached.conn) {
     return cached.conn;
   }

@@ -34,6 +34,11 @@ graph TD
 3. **Personalized Scheme Recommender Engine**:
    - Matches a citizen's profile (state, district, age, income, category) against a seeded database of 30+ actual government schemes, sorting by relevance score.
 
+### Assumptions Made
+- **Network Connectivity**: We assume that users have an active, albeit potentially slow, internet connection. Data processing relies on serverless cloud functions.
+- **Language Models Context**: We assume English as the base logic processing language for prompt instructions to models, while the payload and user interface seamlessly support end-to-end native language interactions.
+- **Testing Environments**: Simulated latency and mock environments are used for jest test suites.
+
 ---
 
 ## 💎 Evaluation Focus Alignment (Tier Checklist)
