@@ -315,7 +315,7 @@ export async function azureHealthCheck(): Promise<{ ok: boolean; model: string; 
       model: response.model || deployment,
       latencyMs: Date.now() - start,
     };
-  } catch (err) {
+  } catch {
     return { ok: false, model: deployment, latencyMs: Date.now() - start };
   }
 }

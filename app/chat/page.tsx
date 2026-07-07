@@ -11,12 +11,9 @@ import {
   Mic, 
   Volume2, 
   ArrowRight, 
-  Check, 
-  X, 
   Activity,
   Building,
   AlertCircle,
-  Search,
   Loader2
 } from "@/app/components/ui/icons";
 
@@ -49,7 +46,7 @@ const SUGGESTIONS = [
 ];
 
 // Fallback icon for Aadhaar since FileText wasn't explicitly imported under that alias
-function FileTextIcon(props: any) {
+function FileTextIcon(props: React.ComponentProps<"svg">) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
@@ -323,7 +320,7 @@ export default function ChatPage() {
                 aria-label="Suggested questions"
                 style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px", maxWidth: "720px", margin: "0 auto" }}
               >
-                {SUGGESTIONS.map((s, i) => {
+                {SUGGESTIONS.map((s) => {
                   const SugIcon = s.icon;
                   return (
                     <button

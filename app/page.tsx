@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Cpu,
   Languages,
-  Activity,
   FileSpreadsheet,
 } from "@/app/components/ui/icons";
 
@@ -282,7 +281,7 @@ export default function HomePage() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "24px" }}>
-              {HOW_IT_WORKS.map((step, i) => {
+              {HOW_IT_WORKS.map((step) => {
                 const Icon = step.icon;
                 return (
                   <div 

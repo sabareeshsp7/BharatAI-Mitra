@@ -2,14 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/app/components/layout/Navbar";
 import {
-  CheckCircle2,
-  AlertCircle,
-  Building,
   Activity,
-  Calendar,
-  MapPin,
-  Clock,
-  Info,
   Check,
 } from "lucide-react"; // Import direct on server to avoid any hook bundle inclusion
 

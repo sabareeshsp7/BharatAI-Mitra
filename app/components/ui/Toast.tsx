@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useCallback } from "react";
 
 type ToastType = "success" | "error" | "info" | "loading";
 

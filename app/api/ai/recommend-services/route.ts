@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import { Service } from "@/models/Service.model";
 import { Session } from "@/models/Session.model";
-import { AICache, generateCacheKey, getCached, setCache } from "@/models/AICache.model";
+import { generateCacheKey, getCached, setCache } from "@/models/AICache.model";
 import { ensembleRecommendServices } from "@/lib/ai/ensemble";
 import { RecommendServicesSchema } from "@/lib/validations";
 import type { SessionProfile, SupportedLanguage } from "@/lib/ai/types";

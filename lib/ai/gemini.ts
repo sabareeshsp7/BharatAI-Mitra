@@ -84,8 +84,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): 
  * Returns a ReadableStream of text chunks.
  */
 export async function streamCivicChat(
-  messages: ChatMessage[],
-  _profile: SessionProfile
+  messages: ChatMessage[]
 ): Promise<ReadableStream<Uint8Array>> {
   const history = messages.slice(0, -1).map((m) => ({
     role: m.role === "assistant" ? "model" : "user",

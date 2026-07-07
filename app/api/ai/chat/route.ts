@@ -5,7 +5,7 @@ import { Session } from "@/models/Session.model";
 import { azureStreamChat } from "@/lib/ai/azure";
 import { detectLanguage, translateText } from "@/lib/ai/sarvam";
 import { ChatRequestSchema } from "@/lib/validations";
-import type { ChatMessage, SessionProfile } from "@/lib/ai/types";
+import type { ChatMessage } from "@/lib/ai/types";
 
 // ─── POST /api/ai/chat ─────────────────────────────────────────────────────────
 // Streaming civic chat with multilingual support
@@ -38,14 +38,7 @@ export async function POST(req: NextRequest) {
       await Session.updateOne({ sessionId }, { lastActiveAt: new Date() });
     }
 
-    const profile: SessionProfile = {
-      preferredLanguage: (session.profile.preferredLanguage || "en") as "en",
-      state: session.profile.state,
-      district: session.profile.district,
-      age: session.profile.age,
-      category: session.profile.category as "general",
-      income: session.profile.income,
-    };
+
 
     // ── Language detection and translation ────────────────────────────────────
     let processedMessage = message;
@@ -75,19 +68,13 @@ export async function POST(req: NextRequest) {
       conversation = await Conversation.create({ sessionId, messages: [] });
     }
 
-    // Build messages array for Gemini (last 20 messages for context window)
+    // Build messages array for context window (last 20 messages)
     const historyMessages: ChatMessage[] = conversation.messages
       .slice(-20)
       .map((m) => ({
         role: m.role,
         content: m.content,
       }));
-
-    // Add current user message (in English for AI processing)
-    const allMessages: ChatMessage[] = [
-      ...historyMessages,
-      { role: "user", content: processedMessage },
-    ];
 
     const conversationIdStr = String(conversation._id);
 

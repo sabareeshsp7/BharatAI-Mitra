@@ -9,13 +9,9 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  Building,
   Activity,
-  Calendar,
-  MapPin,
   Clock,
   Info,
-  ChevronRight,
 } from "@/app/components/ui/icons";
 
 interface ComplaintData {
@@ -27,7 +23,7 @@ interface ComplaintData {
   createdAt: string; updatedAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; badgeClass: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ size?: number; className?: string }>; color: string; badgeClass: string }> = {
   submitted:     { label: "Submitted",    icon: Info, color: "var(--warning)", badgeClass: "ui-badge-warning" },
   acknowledged:  { label: "Acknowledged", icon: Activity, color: "var(--info)", badgeClass: "ui-badge-info" },
   in_progress:   { label: "In Progress",  icon: Clock, color: "var(--primary)", badgeClass: "ui-badge-primary" },

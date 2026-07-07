@@ -7,13 +7,9 @@ import { Spinner } from "@/app/components/ui/SkeletonLoader";
 import { showToast } from "@/app/components/ui/Toast";
 import { useSession } from "@/hooks/useSession";
 import {
-  MessageSquare,
   AlertCircle,
-  Building,
   CheckCircle2,
-  MapPin,
   Cpu,
-  ArrowRight,
   Check,
   ChevronRight,
   Info,
@@ -40,7 +36,7 @@ interface SubmittedComplaint {
   formalDescription: string; suggestedDepartment: string; aiConfidence: string;
 }
 
-const SEVERITY_STYLES: Record<string, { badgeClass: string; icon: any }> = {
+const SEVERITY_STYLES: Record<string, { badgeClass: string; icon: React.ComponentType<React.ComponentProps<"svg">> }> = {
   critical: { badgeClass: "ui-badge-danger", icon: AlertCircle },
   high:     { badgeClass: "ui-badge-warning", icon: AlertCircle },
   medium:   { badgeClass: "ui-badge-warning", icon: Info },
@@ -114,9 +110,7 @@ export default function NewComplaintPage() {
     }
   }, [state, district, address, description, getSession]);
 
-  const currentStepNum = STEPS.findIndex((s) => s.id === step) + 1;
   const sev = aiAnalysis?.severity ? SEVERITY_STYLES[aiAnalysis.severity] : null;
-  const SevIcon = sev ? sev.icon : Info;
 
   return (
     <>

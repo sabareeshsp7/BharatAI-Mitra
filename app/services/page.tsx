@@ -33,7 +33,7 @@ type ChecklistData = {
 };
 
 // Map categories to standard Lucide icons
-const CATEGORY_ICONS: Record<string, any> = {
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   housing:         Building,
   health:          Activity,
   agriculture:     HelpCircle,
@@ -45,9 +45,9 @@ const CATEGORY_ICONS: Record<string, any> = {
   other:           HelpCircle,
 };
 
-function CpuIcon(props: any) {
+function CpuIcon({ size = 20, ...props }: { size?: number } & React.ComponentProps<"svg">) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <rect x="4" y="4" width="16" height="16" rx="2" />
       <rect x="9" y="9" width="6" height="6" rx="1" />
       <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" />
@@ -95,9 +95,6 @@ export default function ServicesPage() {
 
   const debouncedSearch = useDebounce(search, 350);
 
-  useEffect(() => { fetchServices(); }, [debouncedSearch, category]);
-  useEffect(() => { fetchRecommendations(); }, []);
-
   const fetchServices = useCallback(async () => {
     setLoading(true);
     try {
@@ -125,6 +122,11 @@ export default function ServicesPage() {
     } catch { /* silently fail */ }
     finally { setRecLoading(false); }
   }, [getSession]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchServices(); }, [fetchServices]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchRecommendations(); }, [fetchRecommendations]);
 
   const fetchChecklist = useCallback(async (service: Service) => {
     setSelectedService(service);
@@ -261,7 +263,7 @@ export default function ServicesPage() {
             <SkeletonGrid count={6} columns={3} />
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-              {services.map((service, i) => {
+              {services.map((service) => {
                 const cs = catStyle(service.category);
                 const ItemIcon = CATEGORY_ICONS[service.category] || HelpCircle;
                 return (
