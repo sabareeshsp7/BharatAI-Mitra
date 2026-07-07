@@ -10,6 +10,8 @@ import type { SessionProfile, SupportedLanguage } from "@/lib/ai/types";
 // ─── POST /api/ai/recommend-services ─────────────────────────────────────────
 // Ensemble AI (Gemini + Azure) service recommendations with MongoDB caching
 
+export const maxDuration = 60; // Prevent Vercel timeouts
+
 export async function POST(req: NextRequest) {
   try {
     await connectDB();

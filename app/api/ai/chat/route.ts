@@ -11,6 +11,8 @@ import type { ChatMessage } from "@/lib/ai/types";
 // Streaming civic chat with multilingual support
 // Uses: Gemini Flash (primary) + Sarvam AI (language detection + translation)
 
+export const maxDuration = 60; // Prevent Vercel 504 timeouts
+
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
