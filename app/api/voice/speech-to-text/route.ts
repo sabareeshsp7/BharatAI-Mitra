@@ -45,11 +45,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const audioBuffer = await audioFile.arrayBuffer();
-
     if (translateToEnglish) {
       // Use Sarvam's combined STT + translate endpoint
-      const result = await speechToTextAndTranslate(audioBuffer, audioFile.name);
+      const result = await speechToTextAndTranslate(audioFile);
       return NextResponse.json({
         transcript: result.englishText,
         detectedLanguage: result.detectedLanguage,
@@ -58,7 +56,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Standard STT — returns transcript in detected language
-      const result = await speechToText(audioBuffer, languageHint || undefined, audioFile.name);
+      const result = await speechToText(audioFile, languageHint || undefined);
       return NextResponse.json({
         transcript: result.transcript,
         detectedLanguage: result.detectedLanguage,

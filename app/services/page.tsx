@@ -92,7 +92,7 @@ export default function ServicesPage() {
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<{ name: string; reason: string; relevanceScore: number; category: string }[]>([]);
   const [recLoading, setRecLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"documents" | "steps" | "info">("documents");
+  const [activeTab, setActiveTab] = useState<"eligibility" | "documents" | "steps" | "info">("eligibility");
 
   const debouncedSearch = useDebounce(search, 350);
 
@@ -133,7 +133,7 @@ export default function ServicesPage() {
     setSelectedService(service);
     setChecklist(null);
     setChecklistLoading(true);
-    setActiveTab("documents");
+    setActiveTab("eligibility");
     try {
       const res = await fetch("/api/ai/document-checklist", {
         method: "POST",
@@ -371,7 +371,7 @@ export default function ServicesPage() {
             {/* Tab links */}
             <div style={{ padding: "0 24px", background: "var(--neutral-bg)", borderBottom: "1px solid var(--border)" }}>
               <div role="tablist" style={{ display: "flex", gap: "4px" }}>
-                {(["documents", "steps", "info"] as const).map((tab) => (
+                {(["eligibility", "documents", "steps", "info"] as const).map((tab) => (
                   <button
                     key={tab}
                     role="tab"
@@ -386,7 +386,7 @@ export default function ServicesPage() {
                       transition: "all 0.15s ease",
                     }}
                   >
-                    {tab === "documents" ? "Documents Checklist" : tab === "steps" ? "Execution Steps" : "General Info"}
+                    {tab === "eligibility" ? "Eligibility" : tab === "documents" ? "Documents Checklist" : tab === "steps" ? "Execution Steps" : "General Info"}
                   </button>
                 ))}
               </div>
@@ -405,6 +405,28 @@ export default function ServicesPage() {
                 </div>
               ) : checklist ? (
                 <>
+                  {activeTab === "eligibility" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {checklist.eligibility && checklist.eligibility.length > 0 ? (
+                        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "20px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                            <User size={16} style={{ color: "var(--primary)" }} />
+                            <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.01em" }}>Eligibility Criteria</h3>
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "8px", color: "var(--text-muted)", fontSize: "13.5px", lineHeight: 1.5 }}>
+                            {checklist.eligibility.map((criterion, i) => (
+                              <li key={i}>{criterion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: "center", padding: "16px", color: "var(--text-light)" }}>
+                          No specific eligibility criteria found for this scheme.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {activeTab === "documents" && (
                     <div role="list" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                       {checklist.documents?.map((doc, i) => (
@@ -481,20 +503,6 @@ export default function ServicesPage() {
                           );
                         })}
                       </div>
-
-                      {checklist.eligibility && checklist.eligibility.length > 0 && (
-                        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "20px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                            <User size={16} style={{ color: "var(--primary)" }} />
-                            <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.01em" }}>Eligibility Criteria</h3>
-                          </div>
-                          <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "8px", color: "var(--text-muted)", fontSize: "13.5px", lineHeight: 1.5 }}>
-                            {checklist.eligibility.map((criterion, i) => (
-                              <li key={i}>{criterion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
 
                       {checklist.notes?.map((note, i) => (
                         <div key={i} style={{ background: "var(--warning-bg)", border: "1px solid var(--warning-border)", borderRadius: "var(--radius-md)", padding: "14px 16px", display: "flex", gap: "10px" }}>

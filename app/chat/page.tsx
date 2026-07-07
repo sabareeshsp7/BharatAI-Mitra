@@ -152,9 +152,13 @@ export default function ChatPage() {
         formData.append("language", language);
         try {
           const res = await fetch("/api/voice/speech-to-text", { method: "POST", body: formData });
+          if (!res.ok) throw new Error("API returned an error");
           const data = await res.json();
           if (data.transcript) { setInput(data.transcript); inputRef.current?.focus(); }
-        } catch { showToast({ message: "Voice recognition failed.", type: "error" }); }
+          else if (data.error) throw new Error(data.error);
+        } catch (err: any) {
+          showToast({ message: `Voice recognition failed. Try again.`, type: "error" });
+        }
         stream.getTracks().forEach((t) => t.stop());
       };
       mr.start();
