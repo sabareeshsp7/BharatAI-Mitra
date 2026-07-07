@@ -91,17 +91,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       analysis: {
-        ...ensembleResult.result,
+        ...result,
         formalDescriptionTranslated: translatedFormalDescription,
       },
-      ensemble: {
-        confidence: ensembleResult.confidence,
-        agreedBy: ensembleResult.agreedBy,
-        arbitratedBy: ensembleResult.arbitratedBy,
-        geminiCategory: ensembleResult.geminiOutput?.category,
-        azureCategory: ensembleResult.azureOutput?.category,
-        modelsAgreed: ensembleResult.agreedBy.length > 1,
-      },
+      ensemble: ensembleInfo,
       detectedLanguage,
       processedInEnglish: detectedLanguage !== "en",
     });
