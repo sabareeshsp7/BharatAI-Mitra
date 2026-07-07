@@ -108,6 +108,7 @@ export interface DocumentItem {
 }
 
 export interface DocumentChecklist {
+  eligibility?: string[];
   documents: DocumentItem[];
   notes: string[];
   estimatedTime: string;

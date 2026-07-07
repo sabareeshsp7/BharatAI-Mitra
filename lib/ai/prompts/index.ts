@@ -106,6 +106,7 @@ Language for response: ${language} (if not English, respond in ${language})
 
 Return ONLY valid JSON (no markdown, no explanation):
 {
+  "eligibility": ["<eligibility criterion 1>", "<eligibility criterion 2>"],
   "documents": [
     {
       "name": "<document name>",
@@ -121,7 +122,7 @@ Return ONLY valid JSON (no markdown, no explanation):
   "helplineNumber": "<relevant helpline if known>"
 }
 
-Be comprehensive and accurate. Include both mandatory and optional documents.`;
+Be comprehensive and accurate. Include both mandatory and optional documents, and clear eligibility criteria.`;
 
 // ─── Complaint Formalization Prompt ────────────────────────────────────────────
 

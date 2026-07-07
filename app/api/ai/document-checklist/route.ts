@@ -11,6 +11,8 @@ import mongoose from "mongoose";
 // Azure GPT-4o generates document checklist + Sarvam translates if needed
 // Results cached in MongoDB for 7 days per service+language combo
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
@@ -80,6 +82,16 @@ export async function POST(req: NextRequest) {
         checklist.notes = translatedNotes.map((r, i) =>
           r.status === "fulfilled" ? r.value.translatedText : checklist.notes[i]
         );
+
+        // Translate eligibility criteria
+        if (checklist.eligibility && checklist.eligibility.length > 0) {
+          const translatedEligibility = await Promise.allSettled(
+            checklist.eligibility.map((criterion) => translateText(criterion, "en", language))
+          );
+          checklist.eligibility = translatedEligibility.map((r, i) =>
+            r.status === "fulfilled" ? r.value.translatedText : checklist.eligibility![i]
+          );
+        }
       } catch (err) {
         console.warn("Checklist translation failed, serving in English:", err);
       }

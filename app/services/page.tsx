@@ -28,6 +28,7 @@ interface Service {
   applicationUrl?: string; helplineNumber?: string; benefitType: string; launchYear?: number;
 }
 type ChecklistData = {
+  eligibility?: string[];
   documents?: { name: string; description: string; isOptional: boolean; whereToGet: string }[];
   applicationSteps?: string[]; notes?: string[]; estimatedTime?: string; fees?: string;
 };
@@ -480,6 +481,20 @@ export default function ServicesPage() {
                           );
                         })}
                       </div>
+
+                      {checklist.eligibility && checklist.eligibility.length > 0 && (
+                        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "20px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                            <User size={16} style={{ color: "var(--primary)" }} />
+                            <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.01em" }}>Eligibility Criteria</h3>
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "8px", color: "var(--text-muted)", fontSize: "13.5px", lineHeight: 1.5 }}>
+                            {checklist.eligibility.map((criterion, i) => (
+                              <li key={i}>{criterion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       {checklist.notes?.map((note, i) => (
                         <div key={i} style={{ background: "var(--warning-bg)", border: "1px solid var(--warning-border)", borderRadius: "var(--radius-md)", padding: "14px 16px", display: "flex", gap: "10px" }}>
