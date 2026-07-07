@@ -67,10 +67,9 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [micError, setMicError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -138,82 +137,91 @@ export default function ChatPage() {
     }
   }, [isLoading, getSession, conversationId, language]);
 
-  const startRecording = useCallback(async () => {
-    try {
-      // 1. Live Typing (Web Speech API)
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        // Map our 2-letter codes to standard locales for browser STT
-        const localeMap: Record<string, string> = {
-          en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN", 
-          mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", kn: "kn-IN", 
-          ml: "ml-IN", pa: "pa-IN"
-        };
-        recognition.lang = localeMap[language] || "en-IN";
-        
-        // We track the text recognized in this session to overwrite input
-        let finalTranscripts = "";
-        
-        recognition.onresult = (event: any) => {
-          let interimTranscript = "";
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscripts += event.results[i][0].transcript + " ";
-            } else {
-              interimTranscript += event.results[i][0].transcript;
-            }
-          }
-          setInput(finalTranscripts + interimTranscript);
-        };
-        recognition.onerror = () => { /* ignore minor browser STT errors */ };
-        recognition.start();
-        recognitionRef.current = recognition;
+  const toggleRecording = useCallback(() => {
+    // ── Stop if already recording ──────────────────────────────────────────
+    if (isRecording) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop(); // onend will auto-send
       }
-
-      // 2. High-Quality Audio Recording for Sarvam AI
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = async () => {
-        const actualMimeType = mr.mimeType || "audio/webm";
-        const ext = actualMimeType.includes("mp4") ? "mp4" : "webm";
-        const blob = new Blob(chunksRef.current, { type: actualMimeType });
-        const formData = new FormData();
-        formData.append("audio", blob, `recording.${ext}`);
-        formData.append("language", language);
-        try {
-          const res = await fetch("/api/voice/speech-to-text", { method: "POST", body: formData });
-          if (!res.ok) throw new Error("API returned an error");
-          const data = await res.json();
-          // Sarvam AI translates perfectly, immediately send the message
-          if (data.transcript) { 
-            setInput(data.transcript); 
-            sendMessage(data.transcript);
-          }
-          else if (data.error) throw new Error(data.error);
-        } catch (err: any) {
-          showToast({ message: `Voice recognition failed. Try again.`, type: "error" });
-        }
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      mr.start();
-      mediaRecorderRef.current = mr;
-      setIsRecording(true);
-    } catch { showToast({ message: "Microphone access denied.", type: "error" }); }
-  }, [language, sendMessage]);
-
-  const stopRecording = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+      setIsRecording(false);
+      setMicError("");
+      return;
     }
-    mediaRecorderRef.current?.stop();
-    setIsRecording(false);
-  }, []);
+
+    // ── Start recording ────────────────────────────────────────────────────
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setMicError("Voice input requires Chrome or Edge browser.");
+      showToast({ message: "Voice input requires Chrome or Edge.", type: "error" });
+      return;
+    }
+
+    setMicError("");
+    setInput("");
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    const localeMap: Record<string, string> = {
+      en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN",
+      mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", kn: "kn-IN",
+      ml: "ml-IN", pa: "pa-IN"
+    };
+    recognition.lang = localeMap[language] || "en-IN";
+
+    let finalTranscript = "";
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+      finalTranscript = "";
+      setInput("");
+    };
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      // Live typing — update input box in real time like Google
+      setInput(finalTranscript + interim);
+    };
+
+    recognition.onerror = (event: any) => {
+      const msg =
+        event.error === "not-allowed"
+          ? "Microphone access denied. Please allow mic permissions in your browser."
+          : event.error === "no-speech"
+          ? "No speech detected. Click mic and speak clearly."
+          : `Voice error: ${event.error}`;
+      setMicError(msg);
+      showToast({ message: msg, type: "error" });
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+      // Auto-send the captured speech immediately
+      if (finalTranscript.trim()) {
+        sendMessage(finalTranscript.trim());
+        setInput("");
+      }
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch {
+      setMicError("Could not start voice recognition. Please try again.");
+      setIsRecording(false);
+    }
+  }, [isRecording, language, sendMessage]);
 
   const playTTS = useCallback(async (text: string) => {
     try {
@@ -512,21 +520,20 @@ export default function ChatPage() {
       >
         <div style={{ maxWidth: "800px", margin: "0 auto" }}>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            {/* Voice recording button */}
+            {/* Voice recording button - click to toggle */}
             <button
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              aria-label={isRecording ? "Recording — release to stop" : "Hold to record voice input"}
+              onClick={toggleRecording}
+              aria-label={isRecording ? "Stop recording and send" : "Click to speak"}
               aria-pressed={isRecording}
               className="ui-btn ui-btn-secondary"
+              title={isRecording ? "Click again to stop & send" : "Click to start voice input"}
               style={{
                 width: "48px", height: "48px", padding: 0, flexShrink: 0, borderRadius: "var(--radius-md)",
                 borderColor: isRecording ? "var(--danger)" : "var(--border)",
                 background: isRecording ? "var(--danger-bg)" : "var(--surface)",
                 color: isRecording ? "var(--danger)" : "var(--text-muted)",
                 position: "relative",
+                transition: "all 0.2s ease",
               }}
             >
               <Mic size={20} />
@@ -536,7 +543,7 @@ export default function ChatPage() {
                     position: "absolute", inset: "-4px",
                     borderRadius: "14px",
                     border: "2px solid var(--danger)",
-                    opacity: 0.3,
+                    opacity: 0.4,
                     animation: "ripple 1s ease-out infinite",
                   }}
                   aria-hidden="true"
@@ -551,13 +558,18 @@ export default function ChatPage() {
                 id="chat-input"
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => { if (!isRecording) setInput(e.target.value); }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                placeholder={`Type a message to Mitra...`}
+                placeholder={isRecording ? "🎤 Listening… speak now. Click mic again to stop & send" : "Type a message or click 🎤 to speak…"}
                 aria-label="Type your message to Mitra"
                 disabled={isLoading}
                 className="ui-input"
-                style={{ paddingRight: "48px", height: "48px" }}
+                readOnly={isRecording}
+                style={{
+                  paddingRight: "48px", height: "48px",
+                  borderColor: isRecording ? "var(--danger)" : undefined,
+                  transition: "border-color 0.2s ease",
+                }}
               />
               {input.length > 0 && (
                 <span
@@ -588,8 +600,19 @@ export default function ChatPage() {
             </button>
           </div>
 
+          {micError && (
+            <p style={{ fontSize: "12px", color: "var(--danger)", textAlign: "center", marginTop: "8px", fontWeight: 600 }}>
+              {micError}
+            </p>
+          )}
+          {isRecording && !micError && (
+            <p style={{ fontSize: "12px", color: "var(--danger)", textAlign: "center", marginTop: "8px", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--danger)", display: "inline-block", animation: "ripple 1s ease-out infinite" }} />
+              Recording… click the mic button again to stop and send
+            </p>
+          )}
           <p
-            style={{ fontSize: "11px", color: "var(--text-light)", textAlign: "center", marginTop: "10px", fontWeight: 500 }}
+            style={{ fontSize: "11px", color: "var(--text-light)", textAlign: "center", marginTop: isRecording || micError ? "4px" : "10px", fontWeight: 500 }}
           >
             Powered by BharatAI Mitra Ensemble AI Suite (Gemini 2.0 Flash, Azure o4-mini, and Sarvam AI).
           </p>
