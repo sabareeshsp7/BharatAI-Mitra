@@ -1,4 +1,4 @@
-// ─── Shared AI Types for Smart Bharat ─────────────────────────────────────────
+// ─── Shared AI Types for BharatAI Mitra ─────────────────────────────────────────
 
 export type SupportedLanguage =
   | "en"
@@ -40,7 +40,14 @@ export interface ChatMessage {
   translatedContent?: string;
 }
 
-export type AIModel = "gemini-flash" | "gemini-pro" | "azure-gpt4o" | "sarvam" | "ensemble";
+export type AIModel =
+  | "gemini-flash"
+  | "gemini-2.0-flash"
+  | "gemini-pro"
+  | "azure-gpt4o"
+  | "azure-o4-mini"
+  | "sarvam"
+  | "ensemble";
 
 // ─── Complaint Analysis ────────────────────────────────────────────────────────
 
@@ -139,7 +146,7 @@ export interface SessionProfile {
   state?: string;
   district?: string;
   age?: number;
-  category?: "general" | "sc" | "st" | "obc" | "minority" | "ews";
+  category?: "general" | "sc" | "st" | "obc" | "minority" | "ews" | "bpl" | "farmers" | "workers" | "women" | "youth" | "senior-citizens" | "disabled";
   income?: number;
   occupation?: string;
   gender?: "male" | "female" | "other";

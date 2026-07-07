@@ -1,12 +1,8 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable in .env.local"
-  );
-}
+// NOTE: Do NOT throw at module level — Next.js evaluates this at build time.
+// The check happens lazily inside connectDB() when an API route actually calls it.
+const MONGODB_URI = process.env.MONGODB_URI;
 
 /**
  * Global is used to maintain a cached connection across hot reloads in development.
@@ -29,6 +25,12 @@ if (!cached) {
 async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn) {
     return cached.conn;
+  }
+
+  if (!MONGODB_URI) {
+    throw new Error(
+      "MONGODB_URI is not defined. Add it to .env.local and restart the dev server."
+    );
   }
 
   if (!cached.promise) {
