@@ -464,3 +464,40 @@ body {
   background: var(--success-bg);
   color: var(--success);
 }
+
+/* ─── Premium Mobile Responsiveness Overrides ─── */
+@media (max-width: 767px) {
+  /* Prevent sticky bottom navigation bar from overlapping content */
+  main {
+    padding-bottom: 80px !important;
+  }
+
+  /* Optimize padding for mobile screens */
+  main, section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Make sure modal fits and scrolls properly on small screens */
+  .modal-content {
+    width: 95% !important;
+    margin: 10px auto !important;
+    max-height: 90vh !important;
+  }
+
+  .modal-content [role="tabpanel"] {
+    max-height: 60vh !important;
+  }
+
+  /* Compact chat bubble widths on mobile */
+  .chat-bubble-ai, .chat-bubble-user {
+    max-width: 90% !important;
+  }
+
+  /* Adjust wizard tracker step text size and prevent overflow */
+  .wizard-step span {
+    font-size: 10px !important;
+    white-space: normal !important;
+    text-align: center;
+  }
+}

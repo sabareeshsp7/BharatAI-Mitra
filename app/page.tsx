@@ -166,39 +166,22 @@ export default function HomePage() {
         </section>
 
         {/* Stats Grid */}
-        <section aria-label="Key Platform Stats" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 24px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <section aria-label="Key Platform Stats" className="border-b border-[var(--border)] bg-[var(--surface)]">
+          <div className="max-w-[1200px] mx-auto px-4 md:px-6 grid grid-cols-2 md:grid-cols-4">
             {STATS.map((stat, i) => {
               const Icon = stat.icon;
               return (
                 <div
                   key={stat.label}
-                  style={{
-                    textAlign: "center",
-                    padding: "32px 24px",
-                    borderRight: i < STATS.length - 1 ? "1px solid var(--border)" : "none",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                  }}
+                  className="text-center py-6 md:py-8 px-4 flex flex-col items-center border-r last:border-r-0 border-[var(--border)] odd:border-r-[var(--border)] even:border-r-0 md:even:border-r-[var(--border)] md:last:border-r-0 border-b last:border-b-0 odd:last:border-b-0 even:last:border-b-0 md:border-b-0"
                 >
-                  <div style={{ 
-                    background: "var(--primary-subtle)", 
-                    color: "var(--primary)", 
-                    width: "44px", 
-                    height: "44px", 
-                    borderRadius: "50%", 
-                    display: "flex", 
-                    alignItems: "center", 
-                    justifyContent: "center", 
-                    marginBottom: "12px" 
-                  }}>
+                  <div className="bg-[var(--primary-subtle)] text-[var(--primary)] w-11 h-11 rounded-full flex items-center justify-center mb-3">
                     <Icon size={20} />
                   </div>
-                  <div style={{ fontSize: "28px", fontWeight: 800, color: "var(--text-main)", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
+                  <div className="text-2xl md:text-3xl font-extrabold text-[var(--text-main)] leading-tight tracking-tight">
                     {stat.value}
                   </div>
-                  <div style={{ fontSize: "13px", color: "var(--text-light)", marginTop: "4px", fontWeight: 500 }}>
+                  <div className="text-[12px] md:text-[13px] text-[var(--text-light)] mt-1 font-medium">
                     {stat.label}
                   </div>
                 </div>
