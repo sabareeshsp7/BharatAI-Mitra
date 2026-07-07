@@ -185,7 +185,7 @@ export async function azureGenerateDocumentChecklist(
         },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+      max_completion_tokens: 8000,
     })
   );
 
@@ -247,7 +247,7 @@ export async function azureRecommendServices(
         },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+      max_completion_tokens: 4000,
     })
   );
 
@@ -310,7 +310,7 @@ export async function azureStreamChat(
             model: deployment,
             messages,
             stream: true,
-            max_completion_tokens: 2048,
+            max_completion_tokens: 4000,
           })
         );
 
@@ -328,7 +328,7 @@ export async function azureStreamChat(
           const response = await azureClient.chat.completions.create({
             model: deployment,
             messages,
-            max_completion_tokens: 2048,
+            max_completion_tokens: 4000,
           });
           const text = response.choices[0]?.message?.content || "";
           controller.enqueue(encoder.encode(text));

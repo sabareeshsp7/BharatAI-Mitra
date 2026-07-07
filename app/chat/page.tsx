@@ -72,6 +72,9 @@ export default function ChatPage() {
   const [speakingMsgIdx, setSpeakingMsgIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const liveTranscriptRef = useRef("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,11 +142,14 @@ export default function ChatPage() {
     }
   }, [isLoading, getSession, conversationId, language]);
 
-  const toggleRecording = useCallback(() => {
+  const toggleRecording = useCallback(async () => {
     // ── Stop if already recording ──────────────────────────────────────────
     if (isRecording) {
       if (recognitionRef.current) {
-        recognitionRef.current.stop(); // onend will auto-send
+        try { recognitionRef.current.stop(); } catch { /* ignore */ }
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
       }
       setIsRecording(false);
       setMicError("");
@@ -151,77 +157,137 @@ export default function ChatPage() {
     }
 
     // ── Start recording ────────────────────────────────────────────────────
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setMicError("Voice input requires Chrome or Edge browser.");
-      showToast({ message: "Voice input requires Chrome or Edge.", type: "error" });
+    setMicError("");
+    setInput("");
+    liveTranscriptRef.current = "";
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setMicError("Microphone access denied. Please check your browser permissions.");
+      showToast({ message: "Microphone access denied.", type: "error" });
       return;
     }
 
-    setMicError("");
-    setInput("");
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    const localeMap: Record<string, string> = {
-      en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN",
-      mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", kn: "kn-IN",
-      ml: "ml-IN", pa: "pa-IN"
-    };
-    recognition.lang = localeMap[language] || "en-IN";
-
-    let finalTranscript = "";
-
-    recognition.onstart = () => {
-      setIsRecording(true);
-      finalTranscript = "";
-      setInput("");
+    // 1. Setup MediaRecorder for high-accuracy Sarvam AI backend processing
+    const mr = new MediaRecorder(stream);
+    chunksRef.current = [];
+    mr.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+    mr.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+
+      const actualMimeType = mr.mimeType || "audio/webm";
+      const ext = actualMimeType.includes("mp4") ? "mp4" : "webm";
+      const blob = new Blob(chunksRef.current, { type: actualMimeType });
+      const backupText = liveTranscriptRef.current.trim();
+
+      setIsLoading(true);
+      setInput("🎤 Processing your voice...");
+
+      try {
+        const formData = new FormData();
+        formData.append("audio", blob, `recording.${ext}`);
+        formData.append("language", language);
+
+        const res = await fetch("/api/voice/speech-to-text", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error("STT API failed");
+        const data = await res.json();
+
+        if (data.transcript && data.transcript.trim()) {
+          setInput(data.transcript);
+          sendMessage(data.transcript);
+        } else if (backupText) {
+          // Use browser transcript if backend was empty
+          setInput(backupText);
+          sendMessage(backupText);
         } else {
-          interim += event.results[i][0].transcript;
+          setInput("");
+          showToast({ message: "No speech recognized. Please try again.", type: "error" });
         }
-      }
-      // Live typing — update input box in real time like Google
-      setInput(finalTranscript + interim);
-    };
-
-    recognition.onerror = (event: any) => {
-      const msg =
-        event.error === "not-allowed"
-          ? "Microphone access denied. Please allow mic permissions in your browser."
-          : event.error === "no-speech"
-          ? "No speech detected. Click mic and speak clearly."
-          : `Voice error: ${event.error}`;
-      setMicError(msg);
-      showToast({ message: msg, type: "error" });
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-      recognitionRef.current = null;
-      // Auto-send the captured speech immediately
-      if (finalTranscript.trim()) {
-        sendMessage(finalTranscript.trim());
-        setInput("");
+      } catch (err) {
+        console.warn("Backend STT failed, falling back to browser Web Speech API:", err);
+        if (backupText) {
+          setInput(backupText);
+          sendMessage(backupText);
+        } else {
+          setInput("");
+          showToast({ message: "Voice processing failed. Please type your message.", type: "error" });
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
+
+    // 2. Setup browser Web Speech API for real-time live typing
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      const localeMap: Record<string, string> = {
+        en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN",
+        mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", kn: "kn-IN",
+        ml: "ml-IN", pa: "pa-IN"
+      };
+      recognition.lang = localeMap[language] || "en-IN";
+
+      let finalTranscript = "";
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + " ";
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        liveTranscriptRef.current = finalTranscript + interim;
+        setInput(liveTranscriptRef.current);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Browser SpeechRecognition error:", event.error);
+        if (event.error === "not-allowed") {
+          setMicError("Microphone access denied.");
+        }
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+      };
+
+      try {
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (e) {
+        console.warn("Failed to start browser SpeechRecognition:", e);
+      }
+    } else {
+      setIsRecording(true);
+    }
 
     try {
-      recognition.start();
-      recognitionRef.current = recognition;
+      mr.start();
+      mediaRecorderRef.current = mr;
     } catch {
-      setMicError("Could not start voice recognition. Please try again.");
+      setMicError("Could not start audio recorder.");
       setIsRecording(false);
+      stream.getTracks().forEach((t) => t.stop());
     }
   }, [isRecording, language, sendMessage]);
 
