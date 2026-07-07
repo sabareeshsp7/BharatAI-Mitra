@@ -144,9 +144,11 @@ export default function ChatPage() {
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const actualMimeType = mr.mimeType || "audio/webm";
+        const ext = actualMimeType.includes("mp4") ? "mp4" : "webm";
+        const blob = new Blob(chunksRef.current, { type: actualMimeType });
         const formData = new FormData();
-        formData.append("audio", blob, "recording.webm");
+        formData.append("audio", blob, `recording.${ext}`);
         formData.append("language", language);
         try {
           const res = await fetch("/api/voice/speech-to-text", { method: "POST", body: formData });

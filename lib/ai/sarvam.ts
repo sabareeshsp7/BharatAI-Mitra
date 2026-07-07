@@ -160,7 +160,8 @@ export async function translateText(
  */
 export async function speechToText(
   audioBuffer: Buffer | ArrayBuffer,
-  languageHint?: string
+  languageHint?: string,
+  fileName: string = "audio.wav"
 ): Promise<SpeechToTextResult> {
   if (!SARVAM_API_KEY) {
     throw new Error("Sarvam API key not configured for speech-to-text");
@@ -171,8 +172,8 @@ export async function speechToText(
   const audioArray = Buffer.isBuffer(audioBuffer)
     ? (new Uint8Array(audioBuffer)).buffer as ArrayBuffer
     : audioBuffer as ArrayBuffer;
-  const blob = new Blob([audioArray], { type: "audio/wav" });
-  formData.append("file", blob, "audio.wav");
+  const blob = new Blob([audioArray], { type: "application/octet-stream" });
+  formData.append("file", blob, fileName);
   formData.append("model", "saaras:v2");
   if (languageHint) {
     formData.append("language_code", toSarvamCode(languageHint));
@@ -295,7 +296,8 @@ export async function transliterate(
  * Uses Sarvam's /speech-to-text-translate endpoint.
  */
 export async function speechToTextAndTranslate(
-  audioBuffer: Buffer | ArrayBuffer
+  audioBuffer: Buffer | ArrayBuffer,
+  fileName: string = "audio.wav"
 ): Promise<{ englishText: string; detectedLanguage: string }> {
   if (!SARVAM_API_KEY) {
     throw new Error("Sarvam API key not configured");
@@ -305,8 +307,8 @@ export async function speechToTextAndTranslate(
   const audioArray2 = Buffer.isBuffer(audioBuffer)
     ? (new Uint8Array(audioBuffer)).buffer as ArrayBuffer
     : audioBuffer as ArrayBuffer;
-  const blob = new Blob([audioArray2], { type: "audio/wav" });
-  formData.append("file", blob, "audio.wav");
+  const blob = new Blob([audioArray2], { type: "application/octet-stream" });
+  formData.append("file", blob, fileName);
   formData.append("model", "saaras:v2");
 
   const response = await withRetry(() =>
