@@ -41,25 +41,47 @@ You help Indian citizens:
 // ─── Complaint Categorization Prompt ──────────────────────────────────────────
 
 export const COMPLAINT_CATEGORIZATION_PROMPT = (description: string) => `
-You are a civic complaint analysis system for India. Analyze the following citizen complaint and return a structured JSON response.
+You are an expert AI civic complaint classifier. Your task is to analyze the following complaint description and return a structured JSON categorization.
 
-Complaint Description: "${description}"
+COMPLAINT DESCRIPTION:
+"""${description}"""
 
-Return ONLY valid JSON (no markdown, no explanation) in this exact format:
+Return EXACTLY a valid JSON object matching the following structure:
 {
-  "category": "<one of: roads|water|electricity|sanitation|health|education|agriculture|public-safety|environment|other>",
-  "subCategory": "<specific sub-category, e.g. 'pothole', 'water supply disruption', 'illegal dumping'>",
-  "severity": "<one of: low|medium|high|critical>",
-  "formalDescription": "<rewrite as a formal, professional complaint in 2-3 sentences>",
-  "suggestedDepartment": "<relevant government department, e.g. 'Municipal Corporation - Roads Division'>",
-  "keywords": ["<keyword1>", "<keyword2>", "<keyword3>"]
+  "category": "<one of: roads, water, electricity, sanitation, health, education, agriculture, public-safety, environment, other>",
+  "subCategory": "<short specific sub-category string>",
+  "severity": "<one of: low, medium, high, critical>",
+  "formalDescription": "<professional and formal English summary of the issue (2-3 sentences)>",
+  "suggestedDepartment": "<Name of the official government department responsible>",
+  "keywords": ["<key1>", "<key2>", "<key3>"]
 }
+Ensure the output is ONLY the JSON object, with no markdown code blocks.
+`;
 
-Severity Guide:
-- critical: immediate danger to life, major infrastructure failure
-- high: significant disruption affecting many people
-- medium: inconvenience affecting a locality
-- low: minor issue, cosmetic problem`;
+export const COMPLAINT_IMAGE_ANALYSIS_PROMPT = (description: string) => `
+You are an expert civic complaint visual forensic analyzer. You have been provided with an image uploaded by a citizen, along with their text description of the issue.
+
+COMPLAINT DESCRIPTION:
+"""${description}"""
+
+Your tasks are:
+1. Forensically examine the image to determine if it is an authentic photo of a real-world civic issue, or if it appears to be AI-generated, digitally manipulated, or tampered with.
+2. Analyze the contents of the image and extract relevant visual evidence or insights that corroborate or contradict the user's text description.
+3. Categorize the complaint.
+
+Return EXACTLY a valid JSON object matching the following structure:
+{
+  "isAiGenerated": <true or false, based on your forensic analysis>,
+  "imageInsights": "<brief 2-3 sentence visual analysis of the evidence in the photo>",
+  "category": "<one of: roads, water, electricity, sanitation, health, education, agriculture, public-safety, environment, other>",
+  "subCategory": "<short specific sub-category string>",
+  "severity": "<one of: low, medium, high, critical>",
+  "formalDescription": "<professional and formal English summary incorporating both text and visual evidence>",
+  "suggestedDepartment": "<Name of the official government department responsible>",
+  "keywords": ["<key1>", "<key2>", "<key3>"]
+}
+Ensure the output is ONLY the JSON object, with no markdown code blocks.
+`;
 
 // ─── Service Recommendation Prompt ────────────────────────────────────────────
 

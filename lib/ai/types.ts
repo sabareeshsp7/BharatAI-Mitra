@@ -72,6 +72,8 @@ export interface ComplaintAnalysis {
   formalDescription: string;
   suggestedDepartment: string;
   keywords: string[];
+  isAiGenerated?: boolean;
+  imageInsights?: string;
 }
 
 export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";

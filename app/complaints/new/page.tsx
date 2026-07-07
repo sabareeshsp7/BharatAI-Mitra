@@ -29,6 +29,7 @@ type Step = "describe" | "preview" | "location" | "done";
 interface AIAnalysis {
   category: string; subCategory: string; severity: string;
   formalDescription: string; suggestedDepartment: string;
+  isAiGenerated?: boolean; imageInsights?: string;
   ensemble: { confidence: string; agreedBy: string[]; modelsAgreed: boolean };
 }
 interface SubmittedComplaint {
@@ -60,6 +61,49 @@ export default function NewComplaintPage() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [submitted, setSubmitted] = useState<SubmittedComplaint | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageBase64, setImageBase64] = useState<string>("");
+  const [imageMimeType, setImageMimeType] = useState<string>("");
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
+
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setImagePreviewUrl(result);
+        const [meta, base64Data] = result.split(",");
+        const mime = meta.split(";")[0].replace("data:", "");
+        
+        // Client-side compression
+        const img = new Image();
+        img.src = result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_SIZE = 800;
+          let width = img.width;
+          let height = img.height;
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          setImageBase64(compressedDataUrl.split(",")[1]);
+          setImageMimeType("image/jpeg");
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
 
   const analyzeComplaint = useCallback(async () => {
     if (description.trim().length < 10) {
@@ -71,7 +115,7 @@ export default function NewComplaintPage() {
       const res = await fetch("/api/ai/categorize-complaint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
+        body: JSON.stringify({ description, imageBase64, imageMimeType }),
       });
       const data = await res.json();
       setAiAnalysis({ ...data.analysis, ensemble: data.ensemble });
@@ -96,6 +140,9 @@ export default function NewComplaintPage() {
         body: JSON.stringify({
           description, sessionId: getSession(),
           location: { state, district, address }, language: "en", mediaUrls: [],
+          imageBase64, imageMimeType,
+          isAiGeneratedPhoto: aiAnalysis?.isAiGenerated,
+          imageInsights: aiAnalysis?.imageInsights
         }),
       });
       const data = await res.json();
@@ -195,6 +242,37 @@ export default function NewComplaintPage() {
                 </span>
               </div>
 
+              <div style={{ marginTop: "24px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--text-muted)", marginBottom: "8px" }}>
+                  Attach Photo (Optional)
+                </label>
+                <div style={{ 
+                  border: "2px dashed var(--border)", borderRadius: "var(--radius-md)", 
+                  padding: imagePreviewUrl ? "16px" : "32px", textAlign: "center",
+                  background: "var(--neutral-bg)", cursor: "pointer", transition: "all 0.2s ease",
+                  position: "relative"
+                }}>
+                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }} />
+                  {imagePreviewUrl ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <img src={imagePreviewUrl} alt="Preview" style={{ width: "80px", height: "80px", objectFit: "cover", borderRadius: "8px" }} />
+                      <div style={{ textAlign: "left", flex: 1 }}>
+                        <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-main)", marginBottom: "4px" }}>{imageFile?.name}</p>
+                        <p style={{ fontSize: "12px", color: "var(--text-light)" }}>Click or drag to change image</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "var(--surface)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: "12px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                        <Info size={18} style={{ color: "var(--primary)" }} />
+                      </div>
+                      <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-main)", marginBottom: "4px" }}>Upload evidence photo</p>
+                      <p style={{ fontSize: "12px", color: "var(--text-light)" }}>PNG, JPG up to 10MB</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
               <button
                 onClick={analyzeComplaint}
                 disabled={isLoading || description.length < 10}
@@ -272,12 +350,45 @@ export default function NewComplaintPage() {
                 {/* Formatted official translation/summary */}
                 <div style={{ background: "var(--primary-subtle)", border: "1px solid var(--primary-light)", borderRadius: "var(--radius-md)", padding: "20px", marginBottom: "24px" }}>
                   <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Formal Complaint Synopsis (o4-mini generated)
+                    Formal Complaint Synopsis (AI Generated)
                   </p>
                   <p style={{ fontSize: "14px", color: "var(--text-muted)", lineHeight: 1.65 }}>
                     {aiAnalysis.formalDescription}
                   </p>
                 </div>
+                
+                {/* Image Insights & Fraud Detection */}
+                {aiAnalysis.imageInsights && (
+                  <div style={{ 
+                    background: aiAnalysis.isAiGenerated ? "var(--danger-bg)" : "var(--success-bg)", 
+                    border: `1px solid ${aiAnalysis.isAiGenerated ? "var(--danger-border)" : "var(--success-border)"}`, 
+                    borderRadius: "var(--radius-md)", padding: "20px", marginBottom: "24px",
+                    display: "flex", gap: "16px", alignItems: "flex-start"
+                  }}>
+                    <div style={{ flexShrink: 0, marginTop: "2px", color: aiAnalysis.isAiGenerated ? "var(--danger)" : "var(--success)" }}>
+                      {aiAnalysis.isAiGenerated ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
+                    </div>
+                    <div>
+                      <p style={{ 
+                        fontSize: "11px", fontWeight: 700, 
+                        color: aiAnalysis.isAiGenerated ? "var(--danger)" : "var(--success)", 
+                        marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em",
+                        display: "flex", alignItems: "center", gap: "6px"
+                      }}>
+                        Gemini Image Verification 
+                        {aiAnalysis.isAiGenerated && <span className="ui-badge ui-badge-danger" style={{ fontSize: "10px", padding: "2px 6px" }}>FAKE DETECTED</span>}
+                      </p>
+                      <p style={{ fontSize: "14px", color: "var(--text-main)", lineHeight: 1.6 }}>
+                        {aiAnalysis.imageInsights}
+                      </p>
+                      {aiAnalysis.isAiGenerated && (
+                        <p style={{ fontSize: "12px", color: "var(--danger)", marginTop: "8px", fontWeight: 600 }}>
+                          Warning: This image appears to be digitally altered or AI-generated. The complaint may be subject to manual review.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Model pipeline summary */}
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>

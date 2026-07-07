@@ -40,6 +40,8 @@ export interface IComplaint extends Document {
 
   // Media
   mediaUrls: string[];
+  isAiGeneratedPhoto?: boolean;
+  imageInsights?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -110,6 +112,8 @@ const ComplaintSchema = new Schema<IComplaint>(
     },
     timeline: [TimelineSchema],
     mediaUrls: [{ type: String }],
+    isAiGeneratedPhoto: { type: Boolean, default: false },
+    imageInsights: { type: String },
   },
   {
     timestamps: true,

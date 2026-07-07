@@ -7,11 +7,13 @@ import { z } from "zod";
 const Schema = z.object({
   description: z.string().min(5).max(5000),
   language: z.string().default("en"),
+  imageBase64: z.string().optional(),
+  imageMimeType: z.string().optional(),
 });
 
 // ─── POST /api/ai/categorize-complaint ────────────────────────────────────────
-// Standalone ensemble categorization endpoint (Gemini + Azure cross-validation)
-// Can be used independently to preview AI categorization before form submission
+// Standalone categorization endpoint. Uses Azure Vision if image is present,
+// otherwise uses Gemini + Azure ensemble cross-validation.
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { description, language } = validation.data;
+    const { description, language, imageBase64, imageMimeType } = validation.data;
 
     // ── Detect and translate ──────────────────────────────────────────────────
     let englishDescription = description;
@@ -45,15 +47,39 @@ export async function POST(req: NextRequest) {
       console.warn("Language processing failed:", err);
     }
 
-    // ── Ensemble categorization ───────────────────────────────────────────────
-    const ensembleResult = await ensembleCategorizeComplaint(englishDescription);
+    let result;
+    let ensembleInfo;
+
+    if (imageBase64) {
+      // ── Azure Vision categorization ─────────────────────────────────────────
+      const { azureCategorizeWithImage } = require("@/lib/ai/azure");
+      const azureResult = await azureCategorizeWithImage(englishDescription, imageBase64, imageMimeType || "image/jpeg");
+      result = azureResult;
+      ensembleInfo = {
+        confidence: "HIGH", // Vision model has higher context
+        agreedBy: ["Azure-o4-mini-Vision"],
+        modelsAgreed: true,
+      };
+    } else {
+      // ── Ensemble categorization ───────────────────────────────────────────────
+      const ensembleResult = await ensembleCategorizeComplaint(englishDescription);
+      result = ensembleResult.result;
+      ensembleInfo = {
+        confidence: ensembleResult.confidence,
+        agreedBy: ensembleResult.agreedBy,
+        arbitratedBy: ensembleResult.arbitratedBy,
+        geminiCategory: ensembleResult.geminiOutput?.category,
+        azureCategory: ensembleResult.azureOutput?.category,
+        modelsAgreed: ensembleResult.agreedBy.length > 1,
+      };
+    }
 
     // ── Translate formal description back if needed ───────────────────────────
-    let translatedFormalDescription = ensembleResult.result.formalDescription;
+    let translatedFormalDescription = result.formalDescription;
     if (language !== "en" && language !== detectedLanguage) {
       try {
         const translated = await translateText(
-          ensembleResult.result.formalDescription,
+          result.formalDescription,
           "en",
           language
         );

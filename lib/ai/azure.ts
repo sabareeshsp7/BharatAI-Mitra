@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import {
   COMPLAINT_CATEGORIZATION_PROMPT,
+  COMPLAINT_IMAGE_ANALYSIS_PROMPT,
   DOCUMENT_CHECKLIST_PROMPT,
   COMPLAINT_FORMALIZATION_PROMPT,
   SERVICE_RECOMMENDATION_PROMPT,
@@ -113,6 +114,49 @@ export async function azureCategorizeComplaint(
 
   const text = response.choices[0]?.message?.content || "{}";
   return parseJSON<ComplaintAnalysis>(text, "complaint categorization");
+}
+
+/**
+ * Azure o4-mini — structured complaint categorization with Image Vision.
+ */
+export async function azureCategorizeWithImage(
+  description: string,
+  base64Image: string,
+  mimeType: string = "image/jpeg"
+): Promise<ComplaintAnalysis> {
+  if (!endpoint || !apiKey) {
+    throw new Error("Azure OpenAI not configured.");
+  }
+
+  const prompt = COMPLAINT_IMAGE_ANALYSIS_PROMPT(description);
+
+  const response = await withRetry(() =>
+    azureClient.chat.completions.create({
+      model: deployment,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `You are a civic complaint visual forensic analyzer for India. Analyze the complaint text and the provided image. Return ONLY a valid JSON object.\n\n${prompt}`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 1024,
+    })
+  );
+
+  const text = response.choices[0]?.message?.content || "{}";
+  return parseJSON<ComplaintAnalysis>(text, "complaint image analysis");
 }
 
 // ─── Document Checklist Generation ───────────────────────────────────────────

@@ -33,7 +33,11 @@ export const ComplaintCreateSchema = z.object({
     pincode: z.string().regex(/^\d{6}$/, "Invalid 6-digit pincode").optional(),
   }),
   language: z.string().default("en"),
-  mediaUrls: z.array(z.string().url()).max(5).default([]),
+  mediaUrls: z.array(z.string()).max(5).default([]),
+  imageBase64: z.string().optional(),
+  imageMimeType: z.string().optional(),
+  isAiGeneratedPhoto: z.boolean().optional(),
+  imageInsights: z.string().optional(),
 });
 
 export type ComplaintCreate = z.infer<typeof ComplaintCreateSchema>;

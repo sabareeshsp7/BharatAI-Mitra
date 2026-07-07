@@ -69,6 +69,7 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recognitionRef = useRef<any>(null);
   const chunksRef = useRef<Blob[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -139,6 +140,40 @@ export default function ChatPage() {
 
   const startRecording = useCallback(async () => {
     try {
+      // 1. Live Typing (Web Speech API)
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        // Map our 2-letter codes to standard locales for browser STT
+        const localeMap: Record<string, string> = {
+          en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN", 
+          mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", kn: "kn-IN", 
+          ml: "ml-IN", pa: "pa-IN"
+        };
+        recognition.lang = localeMap[language] || "en-IN";
+        
+        // We track the text recognized in this session to overwrite input
+        let finalTranscripts = "";
+        
+        recognition.onresult = (event: any) => {
+          let interimTranscript = "";
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscripts += event.results[i][0].transcript + " ";
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+          setInput(finalTranscripts + interimTranscript);
+        };
+        recognition.onerror = () => { /* ignore minor browser STT errors */ };
+        recognition.start();
+        recognitionRef.current = recognition;
+      }
+
+      // 2. High-Quality Audio Recording for Sarvam AI
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
@@ -154,6 +189,7 @@ export default function ChatPage() {
           const res = await fetch("/api/voice/speech-to-text", { method: "POST", body: formData });
           if (!res.ok) throw new Error("API returned an error");
           const data = await res.json();
+          // Sarvam AI translates perfectly, override the browser's live typing result
           if (data.transcript) { setInput(data.transcript); inputRef.current?.focus(); }
           else if (data.error) throw new Error(data.error);
         } catch (err: any) {
@@ -168,6 +204,10 @@ export default function ChatPage() {
   }, [language]);
 
   const stopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
     mediaRecorderRef.current?.stop();
     setIsRecording(false);
   }, []);

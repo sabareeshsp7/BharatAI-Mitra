@@ -68,6 +68,12 @@ export async function POST(req: NextRequest) {
     const random = Math.random().toString(36).substring(2, 7).toUpperCase();
     const complaintId = `BM-${year}-${random}`;
 
+    // ── Prepend imageBase64 to mediaUrls if provided ─────────────────────────
+    const finalMediaUrls = mediaUrls ? [...mediaUrls] : [];
+    if (validation.data.imageBase64) {
+      finalMediaUrls.unshift(`data:${validation.data.imageMimeType || 'image/jpeg'};base64,${validation.data.imageBase64}`);
+    }
+
     // ── Save complaint to MongoDB ──────────────────────────────────────────────
     const complaint = await Complaint.create({
       complaintId,
@@ -82,6 +88,8 @@ export async function POST(req: NextRequest) {
       keywords: analysis.keywords,
       aiCategoryConfidence: ensembleResult.confidence,
       aiModelsAgreed: ensembleResult.agreedBy,
+      isAiGeneratedPhoto: validation.data.isAiGeneratedPhoto || false,
+      imageInsights: validation.data.imageInsights,
       location,
       status: "submitted",
       timeline: [
@@ -91,7 +99,7 @@ export async function POST(req: NextRequest) {
           timestamp: new Date(),
         },
       ],
-      mediaUrls: mediaUrls || [],
+      mediaUrls: finalMediaUrls,
     });
 
     return NextResponse.json(
