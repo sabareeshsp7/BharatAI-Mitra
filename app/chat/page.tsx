@@ -68,6 +68,8 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [micError, setMicError] = useState("");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMsgIdx, setSpeakingMsgIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -223,20 +225,85 @@ export default function ChatPage() {
     }
   }, [isRecording, language, sendMessage]);
 
-  const playTTS = useCallback(async (text: string) => {
-    try {
-      const res = await fetch("/api/voice/text-to-speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.slice(0, 500), language }),
-      });
-      const data = await res.json();
-      if (data.audioBase64) {
-        const audio = new Audio(`data:${data.mimeType};base64,${data.audioBase64}`);
-        audio.play();
+  const playTTS = useCallback(async (text: string, msgIdx?: number) => {
+    if (isSpeaking) {
+      // Stop any current speech
+      window.speechSynthesis?.cancel();
+      setIsSpeaking(false);
+      setSpeakingMsgIdx(null);
+      return;
+    }
+    setSpeakingMsgIdx(msgIdx ?? null);
+    setIsSpeaking(true);
+
+    // Clean text: strip markdown formatting
+    const cleanText = text
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/#{1,6}\s/g, "")
+      .replace(/•/g, "")
+      .replace(/https?:\/\/\S+/g, "link")
+      .trim();
+
+    // Split into chunks of 400 chars at sentence boundaries
+    const chunks: string[] = [];
+    const sentences = cleanText.match(/[^.!?]+[.!?]*/g) || [cleanText];
+    let current = "";
+    for (const sentence of sentences) {
+      if ((current + sentence).length > 400) {
+        if (current.trim()) chunks.push(current.trim());
+        current = sentence;
+      } else {
+        current += sentence;
       }
-    } catch { /* silently fail */ }
-  }, [language]);
+    }
+    if (current.trim()) chunks.push(current.trim());
+
+    try {
+      for (const chunk of chunks) {
+        const res = await fetch("/api/voice/text-to-speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: chunk, language }),
+        });
+        if (!res.ok) throw new Error(`TTS API error: ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        if (data.audioBase64) {
+          await new Promise<void>((resolve, reject) => {
+            const audio = new Audio(`data:${data.mimeType || "audio/wav"};base64,${data.audioBase64}`);
+            audio.onended = () => resolve();
+            audio.onerror = () => reject(new Error("Audio playback failed"));
+            audio.play().catch(reject);
+          });
+        }
+      }
+    } catch (err) {
+      // Fallback: use browser's built-in TTS
+      console.warn("Sarvam TTS failed, falling back to browser speech:", err);
+      try {
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        const langMap: Record<string, string> = {
+          en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN",
+          mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", kn: "kn-IN",
+          ml: "ml-IN", pa: "pa-IN"
+        };
+        utterance.lang = langMap[language] || "en-IN";
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        await new Promise<void>((resolve) => {
+          utterance.onend = () => resolve();
+          utterance.onerror = () => resolve();
+          window.speechSynthesis.speak(utterance);
+        });
+      } catch {
+        showToast({ message: "Could not play audio. Check your browser settings.", type: "error" });
+      }
+    } finally {
+      setIsSpeaking(false);
+      setSpeakingMsgIdx(null);
+    }
+  }, [language, isSpeaking]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--neutral-bg)" }}>
@@ -453,35 +520,38 @@ export default function ChatPage() {
                       </p>
                       {msg.content && (
                         <button
-                          onClick={() => playTTS(msg.content)}
-                          aria-label="Listen to this message (Sarvam TTS)"
-                          title="Listen via Sarvam AI voice"
+                          onClick={() => playTTS(msg.content, i)}
+                          aria-label={speakingMsgIdx === i ? "Stop speaking" : "Listen to this message"}
+                          title={speakingMsgIdx === i ? "Click to stop" : "Listen via Sarvam AI voice"}
+                          disabled={isSpeaking && speakingMsgIdx !== i}
                           style={{ 
                             marginTop: "12px", 
-                            background: "var(--neutral-bg)", 
-                            border: "1px solid var(--border)", 
+                            background: speakingMsgIdx === i ? "var(--primary-subtle)" : "var(--neutral-bg)", 
+                            border: `1px solid ${speakingMsgIdx === i ? "var(--primary)" : "var(--border)"}`, 
                             borderRadius: "var(--radius-sm)",
-                            padding: "4px 8px",
+                            padding: "4px 10px",
                             fontSize: "12px",
                             fontWeight: 600,
-                            color: "var(--text-muted)",
-                            cursor: "pointer", 
+                            color: speakingMsgIdx === i ? "var(--primary)" : "var(--text-muted)",
+                            cursor: isSpeaking && speakingMsgIdx !== i ? "not-allowed" : "pointer", 
                             display: "inline-flex",
                             alignItems: "center",
                             gap: "6px",
-                            transition: "all 0.2s"
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = "var(--border-hover)";
-                            e.currentTarget.style.color = "var(--text-main)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = "var(--border)";
-                            e.currentTarget.style.color = "var(--text-muted)";
+                            transition: "all 0.2s",
+                            opacity: isSpeaking && speakingMsgIdx !== i ? 0.4 : 1,
                           }}
                         >
-                          <Volume2 size={13} />
-                          <span>Speak Response</span>
+                          {speakingMsgIdx === i ? (
+                            <>
+                              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--primary)", display: "inline-block", animation: "ripple 1s ease-out infinite" }} />
+                              <span>Speaking… (click to stop)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 size={13} />
+                              <span>Speak Response</span>
+                            </>
+                          )}
                         </button>
                       )}
                     </div>
