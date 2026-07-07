@@ -1,19 +1,30 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/app/components/layout/Navbar";
+import { Spinner } from "@/app/components/ui/SkeletonLoader";
 import {
   Activity,
   Check,
-} from "lucide-react"; // Import direct on server to avoid any hook bundle inclusion
+  AlertCircle,
+} from "@/app/components/ui/icons";
 
-async function getComplaint(complaintId: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/complaints/${complaintId}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.complaint;
+interface ComplaintData {
+  complaintId: string;
+  category: string;
+  subCategory: string;
+  severity: string;
+  status: string;
+  formalDescription: string;
+  suggestedDepartment: string;
+  aiCategoryConfidence: string;
+  originalLanguage: string;
+  location: { state: string; district: string; address: string };
+  timeline?: { status: string; note: string; timestamp: string }[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 const STATUS_STEPS = ["submitted", "acknowledged", "in_progress", "resolved"];
@@ -32,16 +43,60 @@ const SEVERITY_COLORS: Record<string, { badgeClass: string; color: string }> = {
   critical: { badgeClass: "ui-badge-danger",  color: "var(--danger)" },
 };
 
-export default async function ComplaintStatusPage({
-  params,
-}: {
-  params: Promise<{ complaintId: string }>;
-}) {
-  const { complaintId } = await params;
-  const complaint = await getComplaint(complaintId);
+export default function ComplaintStatusPage() {
+  const params = useParams<{ complaintId: string }>();
+  const complaintId = params?.complaintId ?? "";
 
-  if (!complaint) {
-    notFound();
+  const [complaint, setComplaint] = useState<ComplaintData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!complaintId) return;
+    const controller = new AbortController();
+    setLoading(true);
+
+    fetch(`/api/complaints/${complaintId}`, { signal: controller.signal })
+      .then((res) => {
+        if (res.status === 404) { setNotFound(true); return null; }
+        return res.json();
+      })
+      .then((data) => { if (data) setComplaint(data.complaint); })
+      .catch((err) => { if (err.name !== "AbortError") setNotFound(true); })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [complaintId]);
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <main style={{ minHeight: "calc(100vh - 64px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Spinner size={36} />
+        </main>
+      </>
+    );
+  }
+
+  if (notFound || !complaint) {
+    return (
+      <>
+        <Navbar />
+        <main style={{ minHeight: "calc(100vh - 64px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px" }}>
+          <div className="ui-card" style={{ padding: "48px 32px", textAlign: "center", maxWidth: "480px", margin: "0 auto" }}>
+            <AlertCircle size={40} style={{ color: "var(--danger)", margin: "0 auto 16px" }} />
+            <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-main)", marginBottom: "8px" }}>Complaint Not Found</h1>
+            <p style={{ fontSize: "14px", color: "var(--text-light)", marginBottom: "24px" }}>
+              No records found for <code style={{ color: "var(--primary)", fontWeight: 700 }}>{complaintId}</code>.
+            </p>
+            <Link href="/complaints/track" className="ui-btn ui-btn-primary" style={{ textDecoration: "none" }}>
+              Try Another ID
+            </Link>
+          </div>
+        </main>
+      </>
+    );
   }
 
   const currentStepIndex = STATUS_STEPS.indexOf(complaint.status);
@@ -52,7 +107,7 @@ export default async function ComplaintStatusPage({
       <Navbar />
       <main id="main-content" style={{ minHeight: "calc(100vh - 64px)", background: "var(--neutral-bg)", padding: "48px 24px 80px" }}>
         <div style={{ maxWidth: "680px", margin: "0 auto" }}>
-          
+
           {/* Back Action */}
           <div style={{ marginBottom: "24px" }}>
             <Link href="/complaints/track" style={{ fontSize: "14px", color: "var(--text-light)", textDecoration: "none", fontWeight: 600 }}>
@@ -123,29 +178,36 @@ export default async function ComplaintStatusPage({
           <div className="ui-card animate-fade-up delay-100" style={{ padding: "32px" }}>
             <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-main)", marginBottom: "24px" }}>Grievance Timeline Updates</h2>
             <div role="list" aria-label="Complaint progress history">
-              {complaint.timeline?.map((entry: { status: string; note: string; timestamp: string }, i: number) => {
-                const isLast = i === complaint.timeline.length - 1;
-                return (
-                  <div key={i} className="track-step" role="listitem" aria-label={`${STATUS_LABELS[entry.status] || entry.status}: ${entry.note}`}>
-                    <div className={`track-icon-wrapper ${isLast ? "active" : "completed"}`} aria-hidden="true">
-                      {isLast ? <Activity size={12} /> : <Check size={12} style={{ strokeWidth: 3 }} />}
-                    </div>
-                    <div style={{ flex: 1, paddingTop: "2px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px", gap: "10px" }}>
-                        <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-main)" }}>
-                          {STATUS_LABELS[entry.status] || entry.status}
-                        </p>
-                        <time dateTime={entry.timestamp} style={{ fontSize: "12px", color: "var(--text-light)", fontWeight: 500 }}>
-                          {new Date(entry.timestamp).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </time>
+              {complaint.timeline && complaint.timeline.length > 0 ? (
+                complaint.timeline.map((entry, i) => {
+                  const isLast = i === (complaint.timeline?.length ?? 0) - 1;
+                  return (
+                    <div key={i} className="track-step" role="listitem" aria-label={`${STATUS_LABELS[entry.status] || entry.status}: ${entry.note}`}>
+                      <div className={`track-icon-wrapper ${isLast ? "active" : "completed"}`} aria-hidden="true">
+                        {isLast ? <Activity size={12} /> : <Check size={12} style={{ strokeWidth: 3 }} />}
                       </div>
-                      <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.5 }}>{entry.note}</p>
+                      <div style={{ flex: 1, paddingTop: "2px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px", gap: "10px" }}>
+                          <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-main)" }}>
+                            {STATUS_LABELS[entry.status] || entry.status}
+                          </p>
+                          <time dateTime={entry.timestamp} style={{ fontSize: "12px", color: "var(--text-light)", fontWeight: 500 }}>
+                            {new Date(entry.timestamp).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </time>
+                        </div>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.5 }}>{entry.note}</p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <p style={{ fontSize: "14px", color: "var(--text-light)", textAlign: "center", padding: "24px 0" }}>
+                  No timeline updates yet. Check back later.
+                </p>
+              )}
             </div>
           </div>
+
         </div>
       </main>
     </>
