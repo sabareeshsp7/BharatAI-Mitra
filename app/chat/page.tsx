@@ -189,8 +189,11 @@ export default function ChatPage() {
           const res = await fetch("/api/voice/speech-to-text", { method: "POST", body: formData });
           if (!res.ok) throw new Error("API returned an error");
           const data = await res.json();
-          // Sarvam AI translates perfectly, override the browser's live typing result
-          if (data.transcript) { setInput(data.transcript); inputRef.current?.focus(); }
+          // Sarvam AI translates perfectly, immediately send the message
+          if (data.transcript) { 
+            setInput(data.transcript); 
+            sendMessage(data.transcript);
+          }
           else if (data.error) throw new Error(data.error);
         } catch (err: any) {
           showToast({ message: `Voice recognition failed. Try again.`, type: "error" });
@@ -201,7 +204,7 @@ export default function ChatPage() {
       mediaRecorderRef.current = mr;
       setIsRecording(true);
     } catch { showToast({ message: "Microphone access denied.", type: "error" }); }
-  }, [language]);
+  }, [language, sendMessage]);
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {

@@ -244,7 +244,7 @@ export default function NewComplaintPage() {
 
               <div style={{ marginTop: "24px" }}>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--text-muted)", marginBottom: "8px" }}>
-                  Attach Photo (Optional)
+                  Attach Photo (Required) <span aria-hidden="true" style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <div style={{ 
                   border: "2px dashed var(--border)", borderRadius: "var(--radius-md)", 
@@ -275,7 +275,7 @@ export default function NewComplaintPage() {
 
               <button
                 onClick={analyzeComplaint}
-                disabled={isLoading || description.length < 10}
+                disabled={isLoading || description.length < 10 || !imageBase64}
                 className="ui-btn ui-btn-primary ui-btn-lg"
                 aria-label="Analyze complaint with AI"
                 style={{ width: "100%", marginTop: "24px" }}
@@ -405,11 +405,19 @@ export default function NewComplaintPage() {
                 <button onClick={() => setStep("describe")} className="ui-btn ui-btn-secondary" aria-label="Edit description" style={{ flex: 1 }}>
                   Edit Draft
                 </button>
-                <button onClick={() => setStep("location")} className="ui-btn ui-btn-primary ui-btn-lg" aria-label="Proceed to add location" style={{ flex: 2 }}>
-                  <span>Proceed to Location</span>
-                  <ChevronRight size={16} />
-                </button>
+                {!aiAnalysis.isAiGenerated && (
+                  <button onClick={() => setStep("location")} className="ui-btn ui-btn-primary ui-btn-lg" aria-label="Proceed to add location" style={{ flex: 2 }}>
+                    <span>Proceed to Location</span>
+                    <ChevronRight size={16} />
+                  </button>
+                )}
               </div>
+              
+              {aiAnalysis.isAiGenerated && (
+                <div style={{ marginTop: "16px", padding: "16px", background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: "var(--radius-md)", color: "var(--danger)", textAlign: "center", fontWeight: 600, fontSize: "14px" }}>
+                  Ticket generation is strictly prohibited for AI-generated or tampered evidence. Please edit the draft and upload an authentic photo to proceed.
+                </div>
+              )}
             </div>
           )}
 
